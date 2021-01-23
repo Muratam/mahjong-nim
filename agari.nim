@@ -1,13 +1,28 @@
 import strformat, sets, sequtils, random, tables, hashes
 import agariset,haiutil
 
+# ウザク本の考え方が正しいかを検証するためのコード
+# - (鳴いて...と書いてある場合を除く)
+# - 赤ドラ周りは仕方なし
 # ツモだけで和了れる確率を計算
-# 純粋に門前で進める時の指標
-func calcTsumoScore(hais: seq[int8],kawa: seq[int8], leftTurn: int = 10) : float =
+# 純粋に門前で進める時の指標で、鳴きは無し
+# リーチはなし, 天和はなし, ロンもなし
+func calcTsumoScore(hais: seq[int8], kawa: seq[int8], leftTurn: int = 10) : float =
+  assert hais.len == 14
   # 枝刈り: シャンテン数を戻すことは通常はない
-  #      : ドラそば(ドラ±2), 一番多い色(7以上), 国士無双(7以上) なら戻しても良い
+  # - 対象牌がN以上かつ対象牌が来たらシャンテン数を下げる方向に動いてもいい
+  # - ドラそば(ドラ±1)は戻しても良い(±2じゃないのは,invalidを超えるのが面倒なため)
+  const allowBackHonitsuCount = 7
+  const allowBackChinitsuCount = 9
+  const allowBackKokushiCount = 9
   # - 何も考えないと 34^{turn} の状態がある
-  #  - 「聴牌形かつ形固定」とすると、和了期待値は計算できる
+  # - 「聴牌形かつ以後形を固定」とすると、和了期待値は計算できる
+  #   - 残り順数に依存するので、一旦無し。組み換えとかあるし
+  #   - 和了らない選択肢がある。最良の選択肢を選ぶ
+  #   - 極論12312378967811で和了るか？、和了れなかったら0点で,和了れるならその点数が入る
+  #   - ツモなのでフリテンは関係ない
+  #   - 和了れた場合、リーチをしていたとして計算する
+  #     - 相手は十分に賢いので降りると仮定(ロンできない)
   #  - 枝刈り+メモ化(7->78->789 と 7->79->789は結構ありうる)
   #
 
