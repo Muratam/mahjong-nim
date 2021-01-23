@@ -1,4 +1,9 @@
-import hashes, sets
+# {.checks:off.}
+import hashes, sets, strutils, algorithm, sequtils, times
+template stopwatch(body) = (let t1 = cpuTime();body;stderr.writeLine "TIME:",(cpuTime() - t1) * 1000,"ms")
+template loop*(n:int,body) = (for _ in 0..<n: body)
+template `max=`*(x,y) = x = max(x,y)
+template `min=`*(x,y) = x = min(x,y)
 let agariStrs = [
   "11101110111011102",
   "11101110111020111",
@@ -9363,14 +9368,40 @@ let agariStrs = [
   "32",
   "2",
 ]
+# string -> int に圧縮
 func bit3x17*(code:string) : int =
   result = 0
   for i, x in code:
     result += (x.ord - '0'.ord) shl (i * 3)
+# 12333 でも 66678 でも同じ
+# 12333 でも 33321 でも同じ
+# 和了: 9362 => 2272
+func compress(str:string) : string =
+  func toString(str: seq[char]): string =
+    result = newStringOfCap(len(str))
+    for ch in str: result &= ch
+  func haiNormalize(str: string) : string =
+    let rev = str.reversed.toString
+    return if str > rev: str else: rev
+  return str.split("0").map(haiNormalize).sorted().join("0")
 
 var agariHashSet* = initHashSet[string]()
-var agariHashSetI64* = initHashSet[int]()
-for str in agariStrs:
-  agariHashSet.incl str
-  agariHashSetI64.incl str.bit3x17
-echo agariHashSet.len
+var compressedAgariHashSet* = initHashSet[string]()
+stopwatch:
+  for str in agariStrs:
+    agariHashSet.incl str
+    compressedAgariHashSet.incl str.compress()
+echo "和了 : ", agariHashSet.len, " / ", compressedAgariHashSet.len
+var compressed1stHashSet* = initHashSet[string]()
+stopwatch:
+  for str in compressedAgariHashSet:
+    # - 塊は「最大4」「連続する長さは最大9」
+    # - 置換は以下のように
+    #   - 0~3なら+1して,0->1にした場合は連続する長さが10を超えないように
+    #   - 塊の長さが8以下なら塊の左右に1を追加
+    for i, c in str:
+      if c == '4': continue
+      var s = str
+      if c == '3': s[i] = '4'
+      elif c == '2': s[i] = '3'
+      elif c == '1': s[i] = '2'
