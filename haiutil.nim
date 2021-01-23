@@ -42,7 +42,7 @@ func isYaoChuhai*(hai:Hai) : bool =
   return hai mod 10 in [0, 8]
 func isKokushi(hais: Hais): bool =
   var alreadyTwo = false
-  for hai, count in hais.hais.pairs:
+  for hai, count in hais.hais:
     if count >= 3: return false
     if not hai.isYaoChuhai(): return false
     if count == 2:
@@ -80,7 +80,7 @@ func isYakuman(hais:Hais): bool =
     elif haiTypes.allIt(it == Souzu): churenType = Souzu
     elif haiTypes.allIt(it == Pinzu): churenType = Pinzu
     else: return false
-    for k, count in hais.hais.pairs:
+    for k, count in hais.hais:
       if k.isYaoChuhai():
         if count < 3: return false
       else:
@@ -88,8 +88,23 @@ func isYakuman(hais:Hais): bool =
     return true
   if isChuren(): return true
   return false
-
-func calcAgari*(hais:Hais, lastHai: Hai) : tuple[hansu, fu:int] =
+let agariHashSet = (func(): HashSet[string] =
+  result = initHashSet[string]()
+  for str in agariStrs: result.incl str)()
+proc isAgari*(hais: Hais) : bool =
+  func encode(hais: Hais): string =
+    # 201110111111111 みたいな
+    result = ""
+    var pre = -1
+    for i in kAvaiableHais:
+      if not hais.hais.contains(i): continue
+      if result.len != 0 and pre != i - 1: # 最初は 0 不要
+        result &= "0"
+      result &= fmt"{hais.hais[i]}"
+      pre = i
+  if hais.isKokushi(): return true
+  return hais.encode() in agariHashSet
+func calcAgari*(hais:Hais, tsumoHai: Hai) : tuple[hansu, fu:int] =
   # TODO:リーチ・ドラは無し, 門前だと仮定, ダブル役満以上は無し
   # TODO:カンは無し(三槓子, 四槓子, 嶺上開花)
   # TODO:ツモのみ(for: 対々和, 四暗刻, 三暗刻, 混老頭)
@@ -125,26 +140,15 @@ func calcAgari*(hais:Hais, lastHai: Hai) : tuple[hansu, fu:int] =
   # 2: 三色同順,三色同刻,三暗刻,一気通貫,七対子,混全帯幺九
   # 3: 二盃口,純全帯公九
   return (hansu, 20)
-
-let agariHashSet = (func(): HashSet[string] =
-  result = initHashSet[string]()
-  for str in agariStrs: result.incl str)()
-# 和了かどうか
-proc isAgari*(hais: Hais) : bool =
-  func encode(hais: Hais): string =
-    # 201110111111111 みたいな
-    result = ""
-    var pre = -1
-    for i in kAvaiableHais:
-      if not hais.hais.contains(i): continue
-      if result.len != 0 and pre != i - 1: # 最初は 0 不要
-        result &= "0"
-      result &= fmt"{hais.hais[i]}"
-      pre = i
-  if hais.isKokushi(): return true
-  return hais.encode() in agariHashSet
-proc getShantensu*(hais: Hais): int =
-  if hais.isAgari(): return 0
+type Suhais = array[9,int8]
+func toInt(x: Suhais): int =
+  (x[0].int shl  0) + (x[1].int shl  3) + (x[2].int shl  6) +
+  (x[0].int shl  9) + (x[1].int shl 12) + (x[2].int shl 15) +
+  (x[0].int shl 18) + (x[1].int shl 27) + (x[2].int shl 30)
+type Tsu = tuple[men,toi,taa:int8]
+var suhaiTable = initTable[int, Tsu]()
+proc calcShantensu*(hais: Hais): int =
+  if hais.isAgari(): return -1
   func calcChitoitsu(): int =
     result = 6
     if hais.hais.len <= 7: result += 7 - hais.hais.len
@@ -158,10 +162,119 @@ proc getShantensu*(hais: Hais): int =
       if count >= 2 : hasTwo = true
       result -= 1
     if hasTwo: result -= 1
-  # 計算するたびにメモ化していけば、どんどん速くなる
-  func calcNormal(): int =
-    result = 8
-    # - メンツ - メンツ候補
+  proc calcNormal(): int =
+    # ここは計算するたびにメモ化していけば、どんどん速くなる
+    proc calcMentsuCands(suhais: Suhais): Tsu =
+      let suhaiInt = suhais.toInt()
+      if suhaiInt in suhaiTable: return suhaiTable[suhaiInt]
+      func calcCands(i:int, suhais: Suhais): seq[Tsu] =
+        # taatsu, toitsu としてのみ使用する
+        result = @[]
+        if i >= 9: return @[]
+        # [1,1] [1,2] [1,3] を組み合わせ. メンツは存在しないと仮定
+        # - [1,1]
+        # - [1,2] / [1,2] [1,2]
+        # - [1,3] / [1,3] [1,3]
+        # トイツとして使用
+        if suhais[i] >= 2:
+          var newSuhais = suhais
+          newSuhais[i] -= 2
+          var tsus = calcCands(i+1, newSuhais)
+          for i in 0..<tsus.len: tsus[i].toi += 1
+          result &= tsus
+        for use in 1i8..2i8:
+          if suhais[i] < use: continue
+          if i < 7 and suhais[i+1] >= use:
+            var newSuhais = suhais
+            newSuhais[i] -= use
+            newSuhais[i+1] -= use
+            var tsus = calcCands(i+1, newSuhais)
+            for i in 0..<tsus.len: tsus[i].taa += use
+            result &= tsus
+          if i < 6 and suhais[i+2] >= use:
+            var newSuhais = suhais
+            newSuhais[i] -= use
+            newSuhais[i+2] -= use
+            var tsus = calcCands(i+1, newSuhais)
+            for i in 0..<tsus.len: tsus[i].taa += use
+            result &= tsus
+        # 使用しない
+        result &= calcCands(i+1, suhais)
+
+      func calcTsus(i:int, suhais: Suhais): seq[Tsu] =
+        result = @[]
+        # 最後まで来たので残りはただのメンツ候補
+        if i >= 9: return calcCands(0, suhais)
+        # 組み合わせは以下
+        # - [1,1,1]
+        # - [1,1,1] [1,2,3]
+        # - [1,2,3] * 1..4
+        # 暗刻として使用
+        if suhais[i] >= 3:
+          var newSuhais = suhais
+          newSuhais[i] -= 3
+          var tsus = calcTsus(i+1, newSuhais)
+          for i in 0..<tsus.len: tsus[i].men += 1
+          result &= tsus
+        # 順子として使用
+        if i <= 6:
+          # 暗刻として使用かつ順子として使用
+          if suhais[i] == 4 and suhais[i+1] >= 1 and suhais[i+2] >= 1:
+            var newSuhais = suhais
+            newSuhais[i] -= 4
+            newSuhais[i+1] -= 1
+            newSuhais[i+2] -= 1
+            var tsus = calcTsus(i+1, newSuhais)
+            for i in 0..<tsus.len: tsus[i].men += 2
+            result &= tsus
+          # 暗刻としては使用せず順子として使用
+          for shuntsu in 1i8..4i8:
+            if suhais[i] < shuntsu or suhais[i+1] < shuntsu or
+               suhais[i+2] < shuntsu: continue
+            var newSuhais = suhais
+            newSuhais[i] -= shuntsu
+            newSuhais[i+1] -= shuntsu
+            newSuhais[i+2] -= shuntsu
+            var tsus = calcTsus(i+1, newSuhais)
+            for i in 0..<tsus.len: tsus[i].men += shuntsu
+            result &= tsus
+        # 使用しない
+        result &= calcTsus(i+1, suhais)
+      # 暗刻は0~4つあるので、そのうち何個を暗刻として解釈するか？
+      for tsu in calcTsus(0, suhais):
+        # mentsu,(toitsu+tatsu),toitsu, tatsu の順で多いものが偉い
+        if result.men > tsu.men : continue
+        elif result.men < tsu.men: result = tsu
+        elif result.toi + result.taa > tsu.toi + tsu.taa : continue
+        elif result.toi + result.taa < tsu.toi + tsu.taa or
+            result.toi < tsu.toi or result.taa < tsu.taa :
+          result = tsu
+      suhaiTable[suhaiInt] = result
+    # mentsu + cand は最大4
+    var tsu : Tsu
+    var manzus, pinzus, souzus: Suhais
+    for k, count in hais.hais:
+      # とりあえず字牌は関係ないので計算しておく
+      case k.toHaiType():
+      of Jihai:
+        if count == 2: tsu.toi += 1
+        elif count >= 3: tsu.men += 1
+      of Manzu: manzus[k mod 10] += 1
+      of Pinzu: pinzus[k mod 10] += 1
+      of Souzu: souzus[k mod 10] += 1
+    let mTsu = manzus.calcMentsuCands()
+    let pTsu = pinzus.calcMentsuCands()
+    let sTsu = souzus.calcMentsuCands()
+    tsu.men += mTsu.men + pTsu.men + sTsu.men
+    tsu.toi += mTsu.toi + pTsu.toi + sTsu.toi
+    tsu.taa += mTsu.taa + pTsu.taa + sTsu.taa
+    # 8 - メンツ*2 - メンツ候補
+    var cand = tsu.toi + tsu.taa
+    if cand + tsu.men > 4:
+      let diff = cand + 4 - tsu.men
+      cand = 4 - tsu.men
+      if tsu.toi > 0 : cand += 1
+    return 8 - cand - 2 * tsu.men
   result = calcChitoitsu()
   result .min= calcKokushi()
   result .min= calcNormal()
@@ -172,10 +285,11 @@ proc agariTest() =
     let hais = [
       "🀑","🀒","🀓","🀓","🀔","🀕","🀗","🀗","🀗","🀆","🀆","🀄","🀄","🀄"
     ].mapIt(it.toHai()).toCountTable()
-    echo Hais(hais:hais).getShantensu()
+    echo Hais(hais:hais).calcShantensu()
   block:
+    # 234 456 788 xx yyy
     let hais = [
       "🀑","🀒","🀓","🀓","🀔","🀕","🀖","🀗","🀗","🀆","🀆","🀄","🀄","🀄"
     ].mapIt(it.toHai()).toCountTable()
-    echo Hais(hais:hais).getShantensu()
+    echo Hais(hais:hais).calcShantensu()
 agariTest()
