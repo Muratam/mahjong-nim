@@ -4,7 +4,12 @@ import agariset,haiutil
 # ツモだけで和了れる確率を計算
 # 純粋に門前で進める時の指標
 func calcTsumoScore(hais: seq[int8],kawa: seq[int8], leftTurn: int = 10) : float =
-  # 雑にモンテカルロで進める？
+  # 枝刈り: シャンテン数を戻すことは通常はない
+  #      : ドラそば(ドラ±2), 一番多い色(7以上), 国士無双(7以上) なら戻しても良い
+  # - 何も考えないと 34^{turn} の状態がある
+  #  - 「聴牌形かつ形固定」とすると、和了期待値は計算できる
+  #  - 枝刈り+メモ化(7->78->789 と 7->79->789は結構ありうる)
+  #
 
 
 # import ,strutils,,math, algorithm
