@@ -1,49 +1,13 @@
 import strformat, sets, sequtils, random, tables, hashes
-import agariset
+import agariset,haiutil
+
+# ツモだけで和了れる確率を計算
+# 純粋に門前で進める時の指標
+func calcTsumoScore(hais: seq[int8],kawa: seq[int8], leftTurn: int = 10) : float =
+  # 雑にモンテカルロで進める？
+
+
 # import ,strutils,,math, algorithm
-
-# 牌
-const kHaiStrs = [
-  "🀇","🀈","🀉","🀊","🀋","🀌","🀍","🀎","🀏", # [0 ,9)
-  "🀙","🀚","🀛","🀜","🀝","🀞","🀟","🀠","🀡", # [9 ,18)
-  "🀐","🀑","🀒","🀓","🀔","🀕","🀖","🀗","🀘", # [18,27)
-  "🀀","🀁","🀂","🀃","🀆","🀅","🀄" # [27,31),[31,34)
-]
-const kHaiMaxKind = kHaiStrs.len
-const kHaiMaxIndex = kHaiMaxKind * 4
-type Hai = object
-  kind : int #
-  number : int   # 4枚あるので0,1,2,3. 問題なければこの値に関係なく動作させるように書く
-func ToHai(index: int): Hai =
-  result.kind = index div 4
-  result.number = index mod 4
-func ToHai(haiStr: string): Hai =
-  for i, str in kHaiStrs:
-    if haiStr != str : continue
-    result.kind = i
-    result.number = 0
-    return
-  assert false
-func FromHai(hai: Hai): int =
-  return hai.kind + hai.kind * 4
-func hash(hai: Hai): Hash = hai.kind
-func `$`(hai: Hai): string =
-  return fmt"{kHaiStrs[hai.kind]}"
-func encode(hais: seq[Hai]): string =
-  assert hais.len == 14
-  let counts = hais.mapIt(it.kind).toCountTable()
-  # 201110111111111 みたいな
-  result = ""
-  var pre = -1
-  for i in 0..<kHaiMaxKind:
-    if not counts.contains(i): continue
-    if result.len != 0: # 最初は 0 不要
-      # 連続していない or 🀇🀙🀐 or 🀀🀁🀂🀃🀆🀅🀄
-      if pre != i - 1 or i mod 9 == 0 or i >= 27:
-        result &= "0"
-    result &= fmt"{counts[i]}"
-    pre = i
-
 func tenpaiTest() =   discard
   # 34種入れてみてテンパイ形か確認すればいい
   # 点数の期待値がそのままその形の評価値になる？(平場・東1・鳴きなしを仮定)
@@ -57,27 +21,33 @@ func tenpaiTest() =   discard
   #   - N順待てるのNに依存して変わる. N = 1~8で試してみるといいか
   #     発展的には、N巡まで和了られない確率をかければ期待値になる
   # - 14枚のうち適当に張り替えてみて,
+  #   枝刈りとして、貪欲に良くなる方良くなる方にあげていくとよい
+  # - 和了れる確率は N = 1 から決定的に求められる
+  #   雑に枝刈りすればよさそう
+  # 一向聴なら、「張り替える」
 
-# 一向聴なら、「張り替える」
+# 1000戦(18ツモ or 平均12の正規分布)やって得点の総和を求めるゲームにすれば
+# 評価しやすそう
 
 randomize()
+# 3bit * 最大17なので、int64に入る
 proc agariTest() =
   block:
     var testHais = [
       "🀑","🀒","🀓","🀓","🀔","🀕","🀗","🀗","🀗","🀆","🀆","🀄","🀄","🀄"
-    ].mapIt(it.ToHai())
+    ].mapIt(it.toHai())
     testHais.shuffle()
     echo testHais.encode()
     echo agariHashSet.contains(testHais.encode())
   block:
     var testHais = [
       "🀑","🀒","🀓","🀓","🀔","🀕","🀖","🀗","🀗","🀆","🀆","🀄","🀄","🀄"
-    ].mapIt(it.ToHai())
+    ].mapIt(it.toHai())
     testHais.shuffle()
     echo testHais.encode()
     echo agariHashSet.contains(testHais.encode())
-# agariTest()
+agariTest()
 block: # テンパイ
   var testHais = [
     "🀑","🀒","🀓","🀓","🀔","🀕","🀗","🀗","🀗","🀆","🀆","🀄","🀄"
-  ].mapIt(it.ToHai())
+  ].mapIt(it.toHai())

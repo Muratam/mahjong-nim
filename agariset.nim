@@ -9363,6 +9363,14 @@ let agariStrs = [
   "32",
   "2",
 ]
+func bit3x17*(code:string) : int =
+  result = 0
+  for i, x in code:
+    result += (x.ord - '0'.ord) shl (i * 3)
+
 var agariHashSet* = initHashSet[string]()
+var agariHashSetI64* = initHashSet[int]()
 for str in agariStrs:
   agariHashSet.incl str
+  agariHashSetI64.incl str.bit3x17
+echo agariHashSet.len
