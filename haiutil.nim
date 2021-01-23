@@ -32,6 +32,12 @@ func toHai*(haiStr: string): Hai =
   for i, str in kHaiStrs:
     if haiStr == str : return i.Hai
   assert false
+func toHais*(haiStr: string) : Hais =
+  assert haiStr.len == 4 * 14
+  var hais = newSeq[string]()
+  for i in 0..<14:
+    hais &= haiStr[i*4..<i*4+4]
+  return Hais(hais:hais.mapIt(it.toHai()).toCountTable())
 func toHaiType*(hai:Hai): HaiType =
   if hai < 10: return Manzu
   if hai < 20: return Pinzu
@@ -143,8 +149,8 @@ func calcAgari*(hais:Hais, tsumoHai: Hai) : tuple[hansu, fu:int] =
 type Suhais = array[9,int8]
 func toInt(x: Suhais): int =
   (x[0].int shl  0) + (x[1].int shl  3) + (x[2].int shl  6) +
-  (x[0].int shl  9) + (x[1].int shl 12) + (x[2].int shl 15) +
-  (x[0].int shl 18) + (x[1].int shl 27) + (x[2].int shl 30)
+  (x[3].int shl  9) + (x[4].int shl 12) + (x[5].int shl 15) +
+  (x[6].int shl 18) + (x[7].int shl 27) + (x[8].int shl 30)
 type Tsu = tuple[men,toi,taa:int8]
 var suhaiTable = initTable[int, Tsu]()
 proc calcShantensu*(hais: Hais): int =
@@ -245,9 +251,11 @@ proc calcShantensu*(hais: Hais): int =
         if result.men > tsu.men : continue
         elif result.men < tsu.men: result = tsu
         elif result.toi + result.taa > tsu.toi + tsu.taa : continue
-        elif result.toi + result.taa < tsu.toi + tsu.taa or
-            result.toi < tsu.toi or result.taa < tsu.taa :
-          result = tsu
+        elif result.toi + result.taa < tsu.toi + tsu.taa: result = tsu
+        elif result.toi > tsu.toi : continue
+        elif result.toi < tsu.toi : result = tsu
+        elif result.taa > tsu.taa : continue
+        elif result.taa < tsu.taa : result = tsu
       suhaiTable[suhaiInt] = result
     # mentsu + cand は最大4
     var tsu : Tsu
@@ -280,15 +288,9 @@ proc calcShantensu*(hais: Hais): int =
   return result
 
 proc agariTest() =
-  block:
-    let hais = [
-      "🀑","🀒","🀓","🀓","🀔","🀕","🀗","🀗","🀗","🀆","🀆","🀄","🀄","🀄"
-    ].mapIt(it.toHai()).toCountTable()
-    echo Hais(hais:hais).calcShantensu()
-  block:
-    # 234 456 788 xx yyy
-    let hais = [
-      "🀑","🀒","🀓","🀓","🀔","🀕","🀖","🀗","🀗","🀆","🀆","🀄","🀄","🀄"
-    ].mapIt(it.toHai()).toCountTable()
-    echo Hais(hais:hais).calcShantensu()
+  # 🀇🀈🀉🀊🀋🀌🀍🀎🀏 🀙🀚🀛🀜🀝🀞🀟🀠🀡 🀐🀑🀒🀓🀔🀕🀖🀗🀘 🀀🀁🀂🀃 🀆🀅🀄
+  echo "🀑🀒🀓🀓🀔🀕🀗🀗🀗🀆🀆🀄🀄🀄".toHais().calcShantensu()
+  echo "🀑🀒🀓🀓🀔🀕🀖🀗🀗🀆🀆🀄🀄🀄".toHais().calcShantensu()
+  echo "🀇🀇🀈🀚🀚🀛🀞🀟🀟🀠🀠🀠🀔🀕".toHais().calcShantensu()
+  echo "🀌🀍🀛🀜🀝🀝🀞🀞🀟🀟🀟🀒🀒🀓".toHais().calcShantensu()
 agariTest()
