@@ -169,8 +169,9 @@ proc calcShantensu*(hais: Hais): int =
       if suhaiInt in suhaiTable: return suhaiTable[suhaiInt]
       func calcCands(i:int, suhais: Suhais): seq[Tsu] =
         # taatsu, toitsu としてのみ使用する
-        result = @[]
-        if i >= 9: return @[]
+        if i >= 9: return @[(0i8,0i8,0i8)]
+        # 使用しない
+        result = calcCands(i+1, suhais)
         # [1,1] [1,2] [1,3] を組み合わせ. メンツは存在しないと仮定
         # - [1,1]
         # - [1,2] / [1,2] [1,2]
@@ -198,9 +199,6 @@ proc calcShantensu*(hais: Hais): int =
             var tsus = calcCands(i+1, newSuhais)
             for i in 0..<tsus.len: tsus[i].taa += use
             result &= tsus
-        # 使用しない
-        result &= calcCands(i+1, suhais)
-
       func calcTsus(i:int, suhais: Suhais): seq[Tsu] =
         result = @[]
         # 最後まで来たので残りはただのメンツ候補
@@ -216,30 +214,31 @@ proc calcShantensu*(hais: Hais): int =
           var tsus = calcTsus(i+1, newSuhais)
           for i in 0..<tsus.len: tsus[i].men += 1
           result &= tsus
-        # 順子として使用
-        if i <= 6:
-          # 暗刻として使用かつ順子として使用
-          if suhais[i] == 4 and suhais[i+1] >= 1 and suhais[i+2] >= 1:
-            var newSuhais = suhais
-            newSuhais[i] -= 4
-            newSuhais[i+1] -= 1
-            newSuhais[i+2] -= 1
-            var tsus = calcTsus(i+1, newSuhais)
-            for i in 0..<tsus.len: tsus[i].men += 2
-            result &= tsus
-          # 暗刻としては使用せず順子として使用
-          for shuntsu in 1i8..4i8:
-            if suhais[i] < shuntsu or suhais[i+1] < shuntsu or
-               suhais[i+2] < shuntsu: continue
-            var newSuhais = suhais
-            newSuhais[i] -= shuntsu
-            newSuhais[i+1] -= shuntsu
-            newSuhais[i+2] -= shuntsu
-            var tsus = calcTsus(i+1, newSuhais)
-            for i in 0..<tsus.len: tsus[i].men += shuntsu
-            result &= tsus
         # 使用しない
         result &= calcTsus(i+1, suhais)
+        # 順子として使用
+        if i > 6: return
+        # 暗刻として使用かつ順子として使用
+        if suhais[i] == 4 and suhais[i+1] >= 1 and suhais[i+2] >= 1:
+          var newSuhais = suhais
+          newSuhais[i] -= 4
+          newSuhais[i+1] -= 1
+          newSuhais[i+2] -= 1
+          var tsus = calcTsus(i+1, newSuhais)
+          for i in 0..<tsus.len: tsus[i].men += 2
+          result &= tsus
+        # 暗刻としては使用せず順子として使用
+        for shuntsu in 1i8..4i8:
+          if suhais[i] < shuntsu or suhais[i+1] < shuntsu or
+              suhais[i+2] < shuntsu: continue
+          var newSuhais = suhais
+          newSuhais[i] -= shuntsu
+          newSuhais[i+1] -= shuntsu
+          newSuhais[i+2] -= shuntsu
+          var tsus = calcTsus(i+1, newSuhais)
+          for i in 0..<tsus.len: tsus[i].men += shuntsu
+          result &= tsus
+
       # 暗刻は0~4つあるので、そのうち何個を暗刻として解釈するか？
       for tsu in calcTsus(0, suhais):
         # mentsu,(toitsu+tatsu),toitsu, tatsu の順で多いものが偉い
@@ -259,9 +258,9 @@ proc calcShantensu*(hais: Hais): int =
       of Jihai:
         if count == 2: tsu.toi += 1
         elif count >= 3: tsu.men += 1
-      of Manzu: manzus[k mod 10] += 1
-      of Pinzu: pinzus[k mod 10] += 1
-      of Souzu: souzus[k mod 10] += 1
+      of Manzu: manzus[k mod 10] += count.int8
+      of Pinzu: pinzus[k mod 10] += count.int8
+      of Souzu: souzus[k mod 10] += count.int8
     let mTsu = manzus.calcMentsuCands()
     let pTsu = pinzus.calcMentsuCands()
     let sTsu = souzus.calcMentsuCands()
