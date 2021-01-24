@@ -11,10 +11,10 @@ type Hai* = int8
 type Hais* = ref object
   hais* : CountTable[Hai] # 14枚とする
 const kHaiStrs* = [
-  "🀇","🀈","🀉","🀊","🀋","🀌","🀍","🀎","🀏","M", # [0 ,8]
-  "🀙","🀚","🀛","🀜","🀝","🀞","🀟","🀠","🀡","P", # [10,18]
-  "🀐","🀑","🀒","🀓","🀔","🀕","🀖","🀗","🀘","S", # [20,28]
-  "🀀","1","🀁","2","🀂","3","🀃","4","🀆","5","🀅","6","🀄"
+  "🀇","🀈","🀉","🀊","🀋","🀌","🀍","🀎","🀏","x", # [0 ,8]
+  "🀙","🀚","🀛","🀜","🀝","🀞","🀟","🀠","🀡","x", # [10,18]
+  "🀐","🀑","🀒","🀓","🀔","🀕","🀖","🀗","🀘","x", # [20,28]
+  "🀀","x","🀁","x","🀂","x","🀃","x","🀆","x","🀅","x","🀄"
    # [30,32,34,36,38,40,42]
 ]
 const kAvaiableHais* = @[
@@ -45,7 +45,10 @@ func toHaiType*(hai:Hai): HaiType =
   return Jihai
 func isYaoChuhai*(hai:Hai) : bool =
   if hai >= 30 : return true
-  return hai mod 10 in [0, 8]
+  case hai mod 10:
+  of 0 : return true
+  of 8 : return true
+  else: return false
 func isKokushi(hais: Hais): bool =
   var alreadyTwo = false
   for hai, count in hais.hais:
@@ -106,20 +109,26 @@ func isYakuman(hais:Hais): bool =
     return true
   if isChuren(): return true
   return false
-let agariHashSet = (func(): HashSet[string] =
-  result = initHashSet[string]()
-  for str in agariStrs: result.incl str)()
+let agariHashSet = (func(): HashSet[int] =
+  result = initHashSet[int]()
+  for str in agariStrs:
+    var h = 0
+    for i, x in str:
+      h += (x.ord - '0'.ord) shl (i * 3)
+    result.incl h
+)()
 proc isAgari*(hais: Hais) : bool =
-  func encode(hais: Hais): string =
+  func encode(hais: Hais): int =
     # 201110111111111 みたいな
-    result = ""
-    var pre = -1
-    for i in kAvaiableHais:
-      if not hais.hais.contains(i): continue
-      if result.len != 0 and pre != i - 1: # 最初は 0 不要
-        result &= "0"
-      result &= fmt"{hais.hais[i]}"
-      pre = i
+    var preHai = -1
+    var i = 0
+    for hai in kAvaiableHais:
+      if not hais.hais.contains(hai): continue
+      if result != 0 and preHai != hai - 1: # 最初は 0 不要
+        i += 1
+      result += (hais.hais[hai] - '0'.ord) shl (i * 3)
+      preHai = hai
+      i += 1
   if hais.isKokushi(): return true
   return hais.encode() in agariHashSet
 func calcAgari*(hais:Hais, tsumoHai: Hai) : tuple[hansu, fu:int] =
@@ -129,7 +138,8 @@ func calcAgari*(hais:Hais, tsumoHai: Hai) : tuple[hansu, fu:int] =
   # assert hais.hais.len == 14
   # 先に役満をチェック(TODO:符は適当)
   if hais.isYakuman(): return (13, 20)
-  var hansu = 0
+  # メンゼンツモ+リーチ
+  var hansu = 2
   # 役牌, 小三元
   const kBakaze = "🀀".toHai()
   const kJikaze = "🀀".toHai()
@@ -167,7 +177,8 @@ func toInt(x: Suhais): int =
 type Tsu = tuple[men,toi,taa:int8]
 var suhaiTable = initTable[int, Tsu]()
 proc calcShantensu*(hais: Hais): int =
-  if hais.isAgari(): return -1
+  # TODO: encode するほうが遅いので消している
+  # if hais.isAgari(): return -1
   func calcChitoitsu(): int =
     result = 6
     if hais.hais.len <= 7: result += 7 - hais.hais.len
@@ -295,9 +306,11 @@ proc calcShantensu*(hais: Hais): int =
       cand = 4 - tsu.men
       if tsu.toi > 0 : cand += 1
     return 8 - cand - 2 * tsu.men
-  result = calcChitoitsu()
-  result .min= calcKokushi()
+  result = 13
+  result .min= calcChitoitsu()
   result .min= calcNormal()
+  if result > 2:
+    result .min= calcKokushi()
   return result
 
 if false:
