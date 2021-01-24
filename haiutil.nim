@@ -1,8 +1,7 @@
 {.checks:off.}
-import strformat, hashes, tables, sequtils, sets, random, algorithm, math
+import strformat, hashes, tables, sequtils, sets, algorithm, math
 import agaristr
 template stopwatch(body) = (let t1 = cpuTime();body;stderr.writeLine "TIME:",(cpuTime() - t1) * 1000,"ms")
-template loop*(n:int,body) = (for _ in 0..<n: body)
 template `max=`*(x,y) = x = max(x,y)
 template `min=`*(x,y) = x = min(x,y)
 
@@ -27,15 +26,16 @@ const kAvaiableHais* = @[
 
 func `$`*(hais: Hais): string =
   result = ""
-  for hai in hais.hais.keys: result &= kHaiStrs[hai]
+  let keys = toSeq(hais.hais.keys).sorted()
+  for hai in keys:
+    for i in 0..<hais.hais[hai]: result &= kHaiStrs[hai] & " "
 func toHai*(haiStr: string): Hai =
   for i, str in kHaiStrs:
     if haiStr == str : return i.Hai
   assert false
 func toHais*(haiStr: string) : Hais =
-  assert haiStr.len == 4 * 14
   var hais = newSeq[string]()
-  for i in 0..<14:
+  for i in 0..<haiStr.len div 4:
     hais &= haiStr[i*4..<i*4+4]
   return Hais(hais:hais.mapIt(it.toHai()).toCountTable())
 func toHaiType*(hai:Hai): HaiType =
@@ -55,8 +55,20 @@ func isKokushi(hais: Hais): bool =
       if alreadyTwo: return false
       alreadyTwo = true
   return true
+func getDora*(doraHyoji:Hai): Hai =
+  case doraHyoji:
+  of "🀀".toHai(): return "🀁".toHai()
+  of "🀁".toHai(): return "🀂".toHai()
+  of "🀂".toHai(): return "🀃".toHai()
+  of "🀃".toHai(): return "🀀".toHai()
+  of "🀆".toHai(): return "🀅".toHai()
+  of "🀅".toHai(): return "🀄".toHai()
+  of "🀄".toHai(): return "🀆".toHai()
+  else: discard
+  if doraHyoji mod 10 != 8i8: return doraHyoji + 1i8
+  return doraHyoji - 9i8
 func isYakuman(hais:Hais): bool =
-  assert hais.hais.len == 14
+  # assert hais.hais.len == 14
   # TODO: ツモのみ(強制四暗刻)
   # TODO: 鳴きなし
   if hais.isKokushi(): return true
@@ -114,7 +126,7 @@ func calcAgari*(hais:Hais, tsumoHai: Hai) : tuple[hansu, fu:int] =
   # TODO:リーチ・ドラは無し, 門前だと仮定, ダブル役満以上は無し
   # TODO:カンは無し(三槓子, 四槓子, 嶺上開花)
   # TODO:ツモのみ(for: 対々和, 四暗刻, 三暗刻, 混老頭)
-  assert hais.hais.len == 14
+  # assert hais.hais.len == 14
   # 先に役満をチェック(TODO:符は適当)
   if hais.isYakuman(): return (13, 20)
   var hansu = 0
@@ -141,7 +153,8 @@ func calcAgari*(hais:Hais, tsumoHai: Hai) : tuple[hansu, fu:int] =
   elif haiTypes.allIt(it == Pinzu or it == Jihai): hansu += 3
   if haiKeys.allIt(not it.isYaoChuhai()): hansu += 1
   # TODO:
-  # 残りは以下で最も飜数が高い組み合わせ(TODO:本当は最も高い点数だがサボり)
+  # 残りは以下で最も飜数が高い組み合わせ
+  #   (本当は最も高い点数(符計算)だがサボり, ドラや赤ドラで変わるため)
   # 1: 一盃口,平和(最後にツモった牌が必要)
   # 2: 三色同順,三色同刻,三暗刻,一気通貫,七対子,混全帯幺九
   # 3: 二盃口,純全帯公九
@@ -287,10 +300,10 @@ proc calcShantensu*(hais: Hais): int =
   result .min= calcNormal()
   return result
 
-proc agariTest() =
+if false:
   # 🀇🀈🀉🀊🀋🀌🀍🀎🀏 🀙🀚🀛🀜🀝🀞🀟🀠🀡 🀐🀑🀒🀓🀔🀕🀖🀗🀘 🀀🀁🀂🀃 🀆🀅🀄
   echo "🀑🀒🀓🀓🀔🀕🀗🀗🀗🀆🀆🀄🀄🀄".toHais().calcShantensu()
   echo "🀑🀒🀓🀓🀔🀕🀖🀗🀗🀆🀆🀄🀄🀄".toHais().calcShantensu()
   echo "🀇🀇🀈🀚🀚🀛🀞🀟🀟🀠🀠🀠🀔🀕".toHais().calcShantensu()
   echo "🀌🀍🀛🀜🀝🀝🀞🀞🀟🀟🀟🀒🀒🀓".toHais().calcShantensu()
-agariTest()
+  echo "🀑🀒🀓🀓🀔🀕🀗🀗🀗🀆🀆🀄🀄🀄".toHais().calcAgari("🀗".toHai())
