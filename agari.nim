@@ -49,6 +49,9 @@ proc calcTsumoScore(hais: Hais, dora: Hai, knows: Hais, leftTurn: int) : float =
     result.kiru = 9
     for kiru in hais.hais.keys:
       var kiruScore = 0.0
+      # ツモ切りするような時はまとめて一回の代表元の探索で済ます
+      # - 初期状態と比べてメンツ
+      # - ドラそばではない
       for tsumo in kAvaiableHais:
         if knows.hais[tsumo] >= 4: continue
         let weight = (4 - knows.hais[tsumo]) / leftHais
@@ -75,12 +78,11 @@ proc calcTsumoScore(hais: Hais, dora: Hai, knows: Hais, leftTurn: int) : float =
       if result.score < kiruScore:
         result.score = kiruScore
         result.kiru = kiru
-    if result.score > 0.0:
-      echo hais, "*".repeat(leftTurn)," S:", nowShantensu , " ",kHaiStrs[result.kiru], " ", fmt"{result.score:.5}"
+    # if result.score > 0.0:
+    #   echo hais, "*".repeat(leftTurn)," S:", nowShantensu , " ",kHaiStrs[result.kiru], " ", fmt"{result.score:.5}"
   stopwatch:
     let(kiru,score) = impl(hais, knows, leftTurn)
-    echo "KIRU:", kHaiStrs[kiru]
-    echo "ITER:", searchCount
+    echo fmt"{hais} | {kHaiStrs[kiru]} {score.int} ({searchCount})"
   return score
 # 1000戦(18ツモ or 平均12の正規分布)やって得点の総和を求めるゲームにすれば
 # 評価しやすそう
@@ -94,8 +96,13 @@ proc solve(haisStr: string, doraHyojiStr: string) : float =
 
 randomize()
 # 🀇🀈🀉🀊🀋🀌🀍🀎🀏 🀙🀚🀛🀜🀝🀞🀟🀠🀡 🀐🀑🀒🀓🀔🀕🀖🀗🀘 🀀🀁🀂🀃 🀆🀅🀄
-# echo "🀌🀍🀛🀜🀝🀝🀞🀞🀟🀟🀟🀒🀒🀓".solve("🀌")
-echo "🀈🀉🀉🀉🀊🀋🀞🀞🀠🀑🀒🀓🀓🀕".solve("🀂")
+# discard "🀌🀍🀛🀜🀝🀝🀞🀞🀟🀟🀟🀒🀒🀓".solve("🀌")
+# discard "🀈🀉🀉🀉🀊🀋🀞🀞🀠🀑🀒🀓🀓🀕".solve("🀂")
+# discard "🀉🀊🀋🀌🀎🀚🀚🀜🀞🀕🀖🀃🀃🀃".solve("🀘") # 125
+# discard "🀉🀊🀋🀌🀎🀚🀚🀛🀜🀞🀕🀖🀃🀃".solve("🀘") # 126
+discard "🀈🀉🀙🀚🀚🀛🀝🀟🀓🀔🀔🀕🀖🀘".solve("🀂") # 132
+
+
 # - 🀈🀉🀉🀉🀊🀋🀞🀞🀠🀑🀒🀓🀓🀕 は 🀠 か 🀈 か?
 #   - 本: 一向聴で 🀠x18, 🀈x15 なので 🀠
 #   - 🀠切り(🀈🀉🀉🀉🀊🀋🀞🀞🀑🀒🀓🀓🀕)(有効牌:🀔x4,🀉x1,🀌x4,🀞x2,🀊x3,🀇x4(タンヤオ・ドラなし,愚形🀔待ちリーチ))
